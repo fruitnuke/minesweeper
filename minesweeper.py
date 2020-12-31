@@ -1,10 +1,13 @@
+import argparse
 import itertools
 import random
+import re
 import string
+import sys
 
 class Board:
 
-    def __init__(self, size=6, mines=3):
+    def __init__(self, size, mines):
         self.size = size
         self._board = list()
         self._revealed = list()
@@ -32,7 +35,7 @@ class Board:
 
 
     def value(self, x, y):
-        return self._board[x][y] if self._revealed[x][y] else '#'
+        return self._board[x][y]
 
     def reveal(self, x, y):
         """Reveal this cell and, if empty, all connected empty cells and their bordering numbered cells."""
@@ -70,12 +73,27 @@ def draw(board):
     for y in range(board.size):
         print(f'{y+1: <2}', sep='', end='')
         for x in range(board.size):
-            print(f' {board.value(x, y):s}', sep='', end='')
+            if not board.is_revealed(x, y):
+                print(' #', sep='', end='')
+            else:
+                value = board.value(x, y)
+                if value == 'M':
+                    value = "*"
+                print(f' {value:s}', sep='', end='')
         print()
 
 
 if __name__ == '__main__':
-    board = Board(size=6)
+    parser = argparse.ArgumentParser(description='Clear the board containing hidden mines, without detonating any of them.')
+    parser.add_argument('--size', type=int, action='store', help='Board size (width and height).', default=10)
+    parser.add_argument('--mines', type=int, action='store', help='Number of mines', default=10)
+    args = parser.parse_args()
+
+    if args.size > 26:
+        print('Board too large (max size is 26).')
+        sys.exit(1)
+        
+    board = Board(size=args.size, mines=args.mines)
     draw(board)
     
     while True:
@@ -87,9 +105,10 @@ if __name__ == '__main__':
         if inp.lower() in ('q', 'quit', 'exit'):
             break
 
-        if len(inp) == 2 and inp[0].isalpha() and inp[1].isdigit():
-            x = int(string.ascii_lowercase.index(inp[0].lower()))
-            y = int(inp[1]) - 1
+        match = re.match(r'^([a-zA-Z])([0-9]+$)', inp)
+        if match:
+            x = int(string.ascii_lowercase.index(match.group(1).lower()))
+            y = int(match.group(2)) - 1
 
             if (x >= board.size) or (y >= board.size):
                 print('The co-ordinates are outside of the board.')
@@ -103,7 +122,7 @@ if __name__ == '__main__':
             draw(board)
 
             if board.value(x, y) == 'M':
-                print('Oh no, you hit a mine! You lost.')
+                print('Oh no, you hit a mine! You lost.')                
                 break
 
             if board.is_complete():
