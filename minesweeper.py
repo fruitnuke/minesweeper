@@ -1,9 +1,11 @@
 import argparse
+import enum
 import itertools
 import random
 import re
 import string
 import sys
+
 
 class Board:
 
@@ -80,22 +82,123 @@ class Board:
         cell = (x, y)
         return cell in self._marks
 
-def draw(board):
-    print('   ' + ' '.join(x for x in string.ascii_uppercase[:board.size]))
-    for y in range(board.size):
-        print(f'{y+1: <2}', sep='', end='')
-        for x in range(board.size):
-            if not board.is_revealed(x, y):
-                if board.is_marked(x, y):
-                    print(' !', sep='', end='')
+
+class Commands(enum.Enum):
+
+    Unknown = enum.auto() 
+    Quit    = enum.auto() 
+    Reveal  = enum.auto()
+    Mark    = enum.auto()
+
+class UnknownCommand:
+
+    action = Commands.Unknown
+
+class QuitCommand:
+
+    action = Commands.Quit
+
+class RevealCommand:
+
+    action = Commands.Reveal
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+class MarkCommand:
+
+    action = Commands.Mark
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
+class UI:
+
+    _prompt = '> '
+
+    def draw(self, board):
+        print('   ' + ' '.join(x for x in string.ascii_uppercase[:board.size]))
+        for y in range(board.size):
+            print(f'{y+1: <2}', sep='', end='')
+            for x in range(board.size):
+                if not board.is_revealed(x, y):
+                    if board.is_marked(x, y):
+                        print(' !', sep='', end='')
+                    else:
+                        print(' #', sep='', end='')
                 else:
-                    print(' #', sep='', end='')
+                    value = board.value(x, y)
+                    if value == 'M':
+                        value = "*"
+                    print(f' {value:s}', sep='', end='')
+            print()
+
+    def input(self):
+        try:
+            s = input(self._prompt)
+        except EOFError:
+            return QuitCommand()
+        
+        if s.lower() in ('q', 'quit', 'exit'):
+            return QuitCommand()
+
+        match = re.match(r'^(!?)([a-zA-Z])([0-9]+$)', s)
+        if match:
+            mark = bool(match.group(1))
+            x = int(string.ascii_lowercase.index(match.group(2).lower()))
+            y = int(match.group(3)) - 1
+
+            if mark:
+                return MarkCommand(x, y)
             else:
-                value = board.value(x, y)
-                if value == 'M':
-                    value = "*"
-                print(f' {value:s}', sep='', end='')
-        print()
+                return RevealCommand(x, y)
+
+        else:
+            return UnknownCommand
+
+    def message(self, msg):
+        print(msg)
+
+
+class GameLoop:
+
+    def run(self, board, ui):
+        while True:
+            command = ui.input()
+
+            if command.action in (Commands.Mark, Commands.Reveal):
+                if (command.x >= board.size) or (command.y >= board.size):
+                    ui.message('The co-ordinates are outside of the board.')
+                    continue
+
+            if command.action == Commands.Quit:
+                break
+
+            elif command.action == Commands.Mark:
+                board.toggle_mark(command.x, command.y)
+                ui.draw(board)
+
+            elif command.action == Commands.Reveal:          
+                if (board.is_revealed(command.x, command.y)):
+                    ui.message('That cell has already been revealed.')
+                    continue                
+
+                board.reveal(command.x, command.y)
+                ui.draw(board)
+
+                if board.value(command.x, command.y) == 'M':
+                    ui.message('Oh no, you hit a mine! You lost.')                
+                    break
+
+                if board.is_complete():
+                    ui.message('Congratulations, you swept all mines and won the game!')
+                    break
+
+            elif command.action == Commands.Unknown:
+                ui.message('I didn\'t understand that.')
 
 
 if __name__ == '__main__':
@@ -104,54 +207,16 @@ if __name__ == '__main__':
     parser.add_argument('--mines', type=int, action='store', help='Number of mines', default=10)
     args = parser.parse_args()
 
-    if args.size > 26:
-        print('Board too large (max size is 26).')
+    # Limit board size to 26 so that all the columns can be addressed by a single alphabet character.
+    if args.size < 1 or args.size > 26:
+        print('Board size must be a positive integer between 1 and 26 inclusive.')
         sys.exit(1)
         
     board = Board(size=args.size, mines=args.mines)
-    draw(board)
     
-    while True:
-        try:
-            inp = input('> ')
-        except EOFError:
-            break
+    ui = UI()
+    ui.draw(board)
 
-        if inp.lower() in ('q', 'quit', 'exit'):
-            break
-
-        match = re.match(r'^(!?)([a-zA-Z])([0-9]+$)', inp)
-        if match:
-            mark = bool(match.group(1))
-            x = int(string.ascii_lowercase.index(match.group(2).lower()))
-            y = int(match.group(3)) - 1
-
-            if (x >= board.size) or (y >= board.size):
-                print('The co-ordinates are outside of the board.')
-                continue
-
-            if (board.is_revealed(x, y)):
-                print('That cell has already been revealed.')
-                continue
-
-            if mark:
-                board.toggle_mark(x, y)
-                draw(board)
-                continue
-
-            board.reveal(x, y)
-            draw(board)
-
-            if board.value(x, y) == 'M':
-                print('Oh no, you hit a mine! You lost.')                
-                break
-
-            if board.is_complete():
-                print('Congratulations, you swept all mines and won the game!')
-                break
-
-        else:
-            print('I didn\'t understand that.')
-
-
-
+    loop = GameLoop()
+    loop.run(board, ui)
+    
