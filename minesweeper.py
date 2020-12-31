@@ -11,6 +11,8 @@ class Board:
         self.size = size
         self._board = list()
         self._revealed = list()
+        self._marks = set()
+
         for i in range(size):
             self._board.append([' '] * size)
             self._revealed.append([False] * size)
@@ -67,6 +69,16 @@ class Board:
                    for x in range(self.size)
                    for y in range(self.size))
 
+    def toggle_mark(self, x, y):
+        cell = (x, y)
+        if cell in self._marks:
+            self._marks.discard(cell)
+        else:
+            self._marks.add(cell)
+
+    def is_marked(self, x, y):
+        cell = (x, y)
+        return cell in self._marks
 
 def draw(board):
     print('   ' + ' '.join(x for x in string.ascii_uppercase[:board.size]))
@@ -74,7 +86,10 @@ def draw(board):
         print(f'{y+1: <2}', sep='', end='')
         for x in range(board.size):
             if not board.is_revealed(x, y):
-                print(' #', sep='', end='')
+                if board.is_marked(x, y):
+                    print(' !', sep='', end='')
+                else:
+                    print(' #', sep='', end='')
             else:
                 value = board.value(x, y)
                 if value == 'M':
@@ -105,10 +120,11 @@ if __name__ == '__main__':
         if inp.lower() in ('q', 'quit', 'exit'):
             break
 
-        match = re.match(r'^([a-zA-Z])([0-9]+$)', inp)
+        match = re.match(r'^(!?)([a-zA-Z])([0-9]+$)', inp)
         if match:
-            x = int(string.ascii_lowercase.index(match.group(1).lower()))
-            y = int(match.group(2)) - 1
+            mark = bool(match.group(1))
+            x = int(string.ascii_lowercase.index(match.group(2).lower()))
+            y = int(match.group(3)) - 1
 
             if (x >= board.size) or (y >= board.size):
                 print('The co-ordinates are outside of the board.')
@@ -116,6 +132,11 @@ if __name__ == '__main__':
 
             if (board.is_revealed(x, y)):
                 print('That cell has already been revealed.')
+                continue
+
+            if mark:
+                board.toggle_mark(x, y)
+                draw(board)
                 continue
 
             board.reveal(x, y)
