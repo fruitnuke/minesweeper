@@ -6,14 +6,41 @@ import re
 import string
 import sys
 
+class Cells(enum.Enum):
 
-class CellTypes(enum.Enum):
+    Empty  = 1
+    Number = 2
+    Mine   = 3
 
-    Empty = enum.auto()
-    Number = enum.auto()
-    Mine = enum.auto()
+class Commands(enum.Enum):
 
-class CellContent:
+    Unknown = 1
+    Quit    = 2 
+    Reveal  = 3
+    Mark    = 4
+
+class GameConditions(enum.Enum):
+
+    Lost = 1
+    Won  = 2
+
+class InputErrors(enum.Enum):
+    OutOfBounds = 1
+    Unknown     = 2
+
+class Command:
+
+    def __init__(self, type):
+        self.type = type
+
+class Move:
+
+    def __init__(self, type, x, y):
+        self.type = type
+        self.x = x
+        self.y = y
+
+class Cell:
 
     def __init__(self, type, value=None):
         self.type = type
@@ -34,41 +61,35 @@ class Board:
         self._marks = set()
 
         for i in range(size):
-            self._board.append([' '] * size)
+            self._board.append([Cell(Cells.Empty)] * size)
             self._revealed.append([False] * size)
 
         # Populate the mines
         cells = list(itertools.product(range(size), repeat=2))
         random.shuffle(cells)
         for x, y in cells[:mines]:
-            self._board[x][y] = 'M'
+            self._board[x][y] = Cell(Cells.Mine)
 
         # Populate the numbers
         for x in range(size):
             for y in range(size):
-                if self._board[x][y] == 'M':
+                if self._board[x][y].type == Cells.Mine:
                     continue
                 n = 0
                 for i in range(max(0, x-1), min(size, x+2)):
                     for j in range(max(0, y-1), min(size, y+2)):
                         if not (i == x and j == y):
-                            if self._board[i][j] == 'M':
+                            if self._board[i][j].type == Cells.Mine:
                                 n += 1
                 if n > 0:
-                    self._board[x][y] = f'{n:d}'
+                    self._board[x][y] = Cell(Cells.Number, value=n)
 
     def cell(self, x, y):
-        value = self._board[x][y]
-        if value == 'M':
-            return CellContent(CellTypes.Mine)
-        elif value == ' ':
-            return CellContent(CellTypes.Empty)
-        else:
-            return CellContent(CellTypes.Number, value=value)        
+        return self._board[x][y]
 
     def reveal(self, x, y):
         """Reveal this cell and, if empty, all connected empty cells and their bordering numbered cells."""
-        if (self._board[x][y] == ' '):
+        if (self._board[x][y].type == Cells.Empty):
             self._flood_reveal(x, y)
         else:
             self._revealed[x][y] = True
@@ -81,7 +102,7 @@ class Board:
         self._revealed[x][y] = True
         self._marks.discard((x, y)) 
 
-        if self._board[x][y] == ' ':
+        if self._board[x][y].type == Cells.Empty:
             for i in range(x-1, x+2):
                 if i < 0 or i >= board.size:
                     continue
@@ -94,7 +115,7 @@ class Board:
         return self._revealed[x][y]
 
     def is_complete(self):        
-        return all(self._revealed[x][y] or self._board[x][y] == 'M'
+        return all(self._revealed[x][y] or self._board[x][y].type == Cells.Mine
                    for x in range(self.size)
                    for y in range(self.size))
 
@@ -109,40 +130,15 @@ class Board:
         else:
             self._marks.add(cell)
 
-
-class Commands(enum.Enum):
-
-    Unknown = enum.auto() 
-    Quit    = enum.auto() 
-    Reveal  = enum.auto()
-    Mark    = enum.auto()
-
-class Command:
-
-    def __init__(self, type):
-        self.type = type
-
-class Turn:
-
-    def __init__(self, type, x, y):
-        self.type = type
-        self.x = x
-        self.y = y
-
-
-class GameConditions(enum.Enum):
-
-    Lost = enum.auto()
-    Won  = enum.auto()
-
-class InputErrors(enum.Enum):
-    OutOfBounds = enum.auto()
-    Unknown     = enum.auto()
-
-
 class UI:
 
     _prompt = '> '
+    _mine   = ' *'
+    _empty  = '  '
+    _mark   = ' !'
+    _hidden = ' #'
+
+    _move_regex = re.compile(r'^(!?)([a-zA-Z])([0-9]+$)')
 
     def draw(self, board):
         print('   ' + ' '.join(x for x in string.ascii_uppercase[:board.size]))
@@ -151,17 +147,17 @@ class UI:
             for x in range(board.size):
                 if board.is_revealed(x, y):
                     cell = board.cell(x, y)
-                    if cell.type == CellTypes.Mine:
-                        print(' *', sep='', end='')
-                    elif cell.type == CellTypes.Empty:
-                        print('  ', sep='', end='')
+                    if cell.type == Cells.Mine:
+                        print(UI._mine, sep='', end='')
+                    elif cell.type == Cells.Empty:
+                        print(UI._empty, sep='', end='')
                     else:
-                        print(f' {cell.value:s}', sep='', end='')
+                        print(f' {cell.value:d}', sep='', end='')
                 else:
                     if board.is_marked(x, y):
-                        print(' !', sep='', end='')
+                        print(UI._mark, sep='', end='')
                     else:
-                        print(' #', sep='', end='')
+                        print(UI._hidden, sep='', end='')
             print()
 
     def input(self):
@@ -173,16 +169,16 @@ class UI:
         if s.lower() in ('q', 'quit', 'exit'):
             return Command(Commands.Quit)
 
-        match = re.match(r'^(!?)([a-zA-Z])([0-9]+$)', s)
+        match = ui._move_regex.match(s)
         if match:
             mark = bool(match.group(1))
             x = int(string.ascii_lowercase.index(match.group(2).lower()))
             y = int(match.group(3)) - 1
 
             if mark:
-                return Turn(Commands.Mark, x, y)
+                return Move(Commands.Mark, x, y)
             else:
-                return Turn(Commands.Reveal, x, y)
+                return Move(Commands.Reveal, x, y)
 
         else:
             return Command(Commands.Unknown)
@@ -199,14 +195,13 @@ class UI:
         elif reply == InputErrors.OutOfBounds:
             print('The co-ordinates are outside of the board.')
 
-
 class GameLoop:
 
     def run(self, board, ui):
         while True:
             command = ui.input()
 
-            if isinstance(command, Turn) and (command.x >= board.size or command.x < 0 or command.y >= board.size or command.y < 0):
+            if isinstance(command, Move) and (command.x >= board.size or command.x < 0 or command.y >= board.size or command.y < 0):
                 ui.reply(InputErrors.OutOfBounds)
                 continue
 
@@ -221,7 +216,7 @@ class GameLoop:
                 board.reveal(command.x, command.y)
                 ui.draw(board)
 
-                if board.cell(command.x, command.y).type == CellTypes.Mine:
+                if board.cell(command.x, command.y).type == Cells.Mine:
                     ui.update(GameConditions.Lost)
                     break
 
@@ -251,4 +246,3 @@ if __name__ == '__main__':
 
     loop = GameLoop()
     loop.run(board, ui)
-    
