@@ -1,2 +1,5 @@
 .vscode/*
-
+ctext/main.dSYM/*
+ctext/.vscode/*
+ctext/main
+ctext/*.o
