@@ -41,6 +41,8 @@ struct Board
     enum OverlayCell overlay[MAX_AREA];
 };
 
+static struct Board board = {0};
+
 void board_init(struct Board* board, uint8_t size, uint16_t num_mines)
 {
     assert(board != NULL);
@@ -107,6 +109,22 @@ void board_reveal(struct Board* board, unsigned int x, unsigned int y)
         for (int j = max((int)y - 1, 0); j < min((int)y + 2, board->size); j++)
             for (int i = max((int)x - 1, 0); i < min((int)x + 2, board->size); i++)
                 board_reveal(board, i, j);
+}
+
+void board_mark(struct Board* board, unsigned int x, unsigned int y)
+{
+    size_t n = y * board->size + x;
+    switch (board->overlay[n])
+    {
+        case OverlayCellHidden:
+            board->overlay[n] = OverlayCellMarked;
+            break;
+        case OverlayCellMarked:
+            board->overlay[n] = OverlayCellHidden;
+            break;
+        case OverlayCellVisible:
+            break;
+    }
 }
 
 enum GameState
@@ -195,6 +213,8 @@ enum InputType
     InputTypeError,
 };
 
+static char input[6] = {0};
+
 enum InputType view_input(struct Command* command)
 {
     assert(command != NULL);
@@ -277,10 +297,8 @@ enum InputType view_input(struct Command* command)
 int main(int argc, char** argv)
 {
     unsigned int exit_code = 0;
-    char input[6] = {0};
     srand(time(NULL));
 
-    struct Board board;
     board_init(&board, 6 /*size*/, 6 /*mines*/);
     view_draw(&board);
 
@@ -333,6 +351,7 @@ int main(int argc, char** argv)
                     }
 
                     case CommandTypeMark:
+                        board_mark(&board, command.x, command.y);
                         view_draw(&board);
                         break;
                 };
