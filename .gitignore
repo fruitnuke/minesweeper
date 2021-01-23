@@ -1,5 +1,6 @@
 .vscode/*
-ctext/main.dSYM/*
+ctext/minesweeper.dSYM/*
 ctext/.vscode/*
-ctext/main
+ctext/minesweeper
 ctext/*.o
+
