@@ -15,7 +15,7 @@ class Cells(enum.Enum):
 class Commands(enum.Enum):
 
     Unknown = 1
-    Quit    = 2 
+    Quit    = 2
     Reveal  = 3
     Mark    = 4
 
@@ -48,8 +48,8 @@ class Cell:
 
 class Board:
 
-    # Internally the board is a simple 2-D "matrix" (list-of-lists) of characters: 
-    # 'M' for a mine, ' ' for an empty cell, and '1'..'8' for number 
+    # Internally the board is a simple 2-D "matrix" (list-of-lists) of characters:
+    # 'M' for a mine, ' ' for an empty cell, and '1'..'8' for number
     # cells. A separate "matrix" of bools determines which cells have
     # been revealed by the player and which remain hidden.
 
@@ -93,14 +93,14 @@ class Board:
             self._flood_reveal(x, y)
         else:
             self._revealed[x][y] = True
-            self._marks.discard((x, y)) 
+            self._marks.discard((x, y))
 
     def _flood_reveal(self, x, y):
         if self._revealed[x][y]:
             return
 
         self._revealed[x][y] = True
-        self._marks.discard((x, y)) 
+        self._marks.discard((x, y))
 
         if self._board[x][y].type == Cells.Empty:
             for i in range(x-1, x+2):
@@ -114,7 +114,7 @@ class Board:
     def is_revealed(self, x, y):
         return self._revealed[x][y]
 
-    def is_complete(self):        
+    def is_complete(self):
         return all(self._revealed[x][y] or self._board[x][y].type == Cells.Mine
                    for x in range(self.size)
                    for y in range(self.size))
@@ -165,7 +165,7 @@ class UI:
             s = input(self._prompt)
         except EOFError:
             return Command(Commands.Quit)
-        
+
         if s.lower() in ('q', 'quit', 'exit'):
             return Command(Commands.Quit)
 
@@ -212,7 +212,7 @@ class GameLoop:
                 board.toggle_mark(command.x, command.y)
                 ui.draw(board)
 
-            elif command.type == Commands.Reveal:                      
+            elif command.type == Commands.Reveal:
                 board.reveal(command.x, command.y)
                 ui.draw(board)
 
@@ -230,7 +230,7 @@ class GameLoop:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Clear the board containing hidden mines, without detonating any of them.')
-    parser.add_argument('--size', type=int, action='store', help='Board size (width and height).', default=10)
+    parser.add_argument('--size', type=int, action='store', help='Board size (width and height).', default=6)
     parser.add_argument('--mines', type=int, action='store', help='Number of mines', default=10)
     args = parser.parse_args()
 
@@ -238,9 +238,9 @@ if __name__ == '__main__':
     if args.size < 1 or args.size > 26:
         print('Board size must be a positive integer between 1 and 26 inclusive.')
         sys.exit(1)
-        
+
     board = Board(size=args.size, mines=args.mines)
-    
+
     ui = UI()
     ui.draw(board)
 
