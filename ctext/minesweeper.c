@@ -35,16 +35,16 @@ enum OverlayCell
     OverlayCellMarked,
 };
 
-struct Board
+typedef struct
 {
     uint8_t size;
     uint8_t cells[MAX_BOARD_AREA];
     enum OverlayCell overlay[MAX_BOARD_AREA];
-};
+} Board;
 
-static struct Board board = {0};
+static Board board = {0};
 
-void board_init(struct Board* board, uint8_t size, uint16_t num_mines)
+void board_init(Board* board, uint8_t size, uint16_t num_mines)
 {
     assert(board != NULL);
     assert(size > 0 && size <= MAX_BOARD_SIZE);
@@ -96,7 +96,7 @@ void board_init(struct Board* board, uint8_t size, uint16_t num_mines)
         }
 }
 
-void board_reveal(struct Board* board, unsigned int x, unsigned int y)
+void board_reveal(Board* board, unsigned int x, unsigned int y)
 {
     unsigned int n = y * board->size + x;
 
@@ -112,7 +112,7 @@ void board_reveal(struct Board* board, unsigned int x, unsigned int y)
                 board_reveal(board, i, j);
 }
 
-void board_mark(struct Board* board, unsigned int x, unsigned int y)
+void board_mark(Board* board, unsigned int x, unsigned int y)
 {
     size_t n = y * board->size + x;
     switch (board->overlay[n])
@@ -135,7 +135,7 @@ enum GameState
     GameStateLost,
 };
 
-enum GameState board_check_game_state(struct Board* board)
+enum GameState board_check_game_state(Board* board)
 {
     for (unsigned int y = 0; y < board->size; y++)
         for (unsigned int x = 0; x < board->size; x++)
@@ -156,7 +156,7 @@ enum GameState board_check_game_state(struct Board* board)
     return GameStateWon;
 }
 
-void view_draw(struct Board *board)
+void view_draw(Board *board)
 {
     printf("  ");
     for (unsigned int i = 0; i < board->size; i++)
@@ -199,12 +199,12 @@ enum CommandType
     CommandTypeMark,
 };
 
-struct Command
+typedef struct
 {
     enum CommandType type;
     unsigned int x;
     unsigned int y;
-};
+} Command;
 
 enum InputType
 {
@@ -216,7 +216,7 @@ enum InputType
 
 static char input[6] = {0};
 
-enum InputType view_input(struct Command* command)
+enum InputType view_input(Command* command)
 {
     assert(command != NULL);
 
@@ -360,7 +360,7 @@ int main(int argc, char** argv)
 
     while (1)
     {
-        struct Command command;
+        Command command;
         switch (view_input(&command))
         {
             case InputTypeError:
